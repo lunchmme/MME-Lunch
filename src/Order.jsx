@@ -6,6 +6,23 @@ const offlineInfo = { departments: ['Mechanical Engineering', 'Mechatronics Engi
 const setMeal = (setMeals, index, patch) => setMeals(meals => meals.map((meal, i) => i === index ? { ...meal, ...patch } : meal))
 const complete = meal => meal.kind === 'burgers' ? meal.burgers.every(Boolean) : meal.kind === 'bbq' && meal.sticks.every(Boolean) && meal.side
 
+function Picker({ id, label, value, options, placeholder = 'Choose', invalid = false, onChange }) {
+  const [open, setOpen] = useState(false)
+  const picker = useRef(null)
+  const selected = options.find(option => option.value === value)
+  useEffect(() => {
+    const close = event => { if (!picker.current?.contains(event.target)) setOpen(false) }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [])
+  return <div className="picker" ref={picker}>
+    <button id={id} type="button" className="picker-trigger" aria-label={label} aria-invalid={invalid || undefined} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+      <span>{selected?.label || placeholder}</span><span className="picker-chevron" aria-hidden="true">v</span>
+    </button>
+    {open && <div className="picker-options" role="listbox" aria-label={label}>{options.map(option => <button key={option.value} type="button" role="option" aria-selected={option.value === value} onClick={() => { onChange(option.value); setOpen(false) }}>{option.label}</button>)}</div>}
+  </div>
+}
+
 function Deadline({ value }) {
   if (!value) return null
   const date = new Date(value)
@@ -20,16 +37,16 @@ function Included({ meal, index, setMeals }) {
 
 function MealEntry({ meal, index, setMeals, validation }) {
   const change = patch => setMeal(setMeals, index, patch)
-  const choose = (id, label, value, values, onChange) => <div><label htmlFor={id}>{label}</label><select id={id} aria-label={label} value={value} onChange={onChange}><option value="">Choose</option>{values.map(x => <option key={x}>{x}</option>)}</select></div>
+  const choose = (id, label, value, values, onChange) => <div><label htmlFor={id}>{label}</label><Picker id={id} label={label} value={value} onChange={onChange} options={values.map(item => ({ value: item, label: item }))} /></div>
+  const invalid = validation?.id === `meal-${index}`
   return <section className="card individual-meal"><div className="meal-heading"><span>{index + 1}</span><div><h2>Meal {index + 1}</h2></div></div>
-    <div><label htmlFor={`meal-${index}`}>Meal type</label><select id={`meal-${index}`} aria-label={`Meal ${index + 1}`} value={meal.kind} onChange={e => change({ kind: e.target.value })}><option value="">Choose a meal type</option><option value="burgers">2 burgers</option><option value="bbq">3 BBQ sticks</option></select></div>
-    {validation?.id === `meal-${index}` && <div className="field-error" role="alert">{validation.message}</div>}
-    {meal.kind === 'burgers' && <><div className="choice-grid">{meal.burgers.map((burger, i) => choose(`burger-${index}-${i}`, `Burger ${i + 1}`, burger, ['Chicken', 'Meat'], e => change({ burgers: meal.burgers.map((x, j) => j === i ? e.target.value : x) })))}</div><Included meal={meal} index={index} setMeals={setMeals} /></>}
-    {meal.kind === 'bbq' && <><div className="choice-grid bbq-grid">{meal.sticks.map((stick, i) => choose(`stick-${index}-${i}`, `Stick ${i + 1}`, stick, ['Tawouk', 'Lahme', 'Kafta'], e => change({ sticks: meal.sticks.map((x, j) => j === i ? e.target.value : x) })))}</div>{choose(`side-${index}`, 'Side', meal.side, ['Tabbouli', 'Fattoush'], e => change({ side: e.target.value }))}<Included meal={meal} index={index} setMeals={setMeals} /></>}
+    <div><label htmlFor={`meal-${index}`}>Meal type</label><Picker id={`meal-${index}`} label={`Meal ${index + 1}`} value={meal.kind} invalid={invalid} placeholder="Choose a meal type" options={[{ value: 'burgers', label: '2 burgers' }, { value: 'bbq', label: '3 BBQ sticks' }]} onChange={kind => change({ kind })} /></div>
+    {invalid && <div className="field-error" role="alert">{validation.message}</div>}
+    {meal.kind === 'burgers' && <><div className="choice-grid">{meal.burgers.map((burger, i) => choose(`burger-${index}-${i}`, `Burger ${i + 1}`, burger, ['Chicken', 'Meat'], value => change({ burgers: meal.burgers.map((item, j) => j === i ? value : item) })))}</div><Included meal={meal} index={index} setMeals={setMeals} /></>}
+    {meal.kind === 'bbq' && <><div className="choice-grid bbq-grid">{meal.sticks.map((stick, i) => choose(`stick-${index}-${i}`, `Stick ${i + 1}`, stick, ['Tawouk', 'Lahme', 'Kafta'], value => change({ sticks: meal.sticks.map((item, j) => j === i ? value : item) })))}</div>{choose(`side-${index}`, 'Side', meal.side, ['Tabbouli', 'Fattoush'], value => change({ side: value }))}<Included meal={meal} index={index} setMeals={setMeals} /></>}
     <label htmlFor={`note-${index}`}>Note <span className="optional">optional</span></label><input id={`note-${index}`} aria-label={`Note for meal ${index + 1}`} maxLength={200} value={meal.note} placeholder="e.g. no onions" onChange={e => change({ note: e.target.value })} />
   </section>
 }
-
 export default function Order() {
   const [info, setInfo] = useState(null), [error, setError] = useState(''), [message, setMessage] = useState(''), [done, setDone] = useState(null)
   const [details, setDetails] = useState({ department: '', name: '', uid: '', email: '' }), [count, setCount] = useState(1), [meals, setMeals] = useState([emptyMeal()]), [busy, setBusy] = useState(false), [validation, setValidation] = useState(null)
@@ -50,5 +67,5 @@ export default function Order() {
   <span className="ticket-highlight">
     Your QR ticket will be emailed after payment is confirmed.
   </span>
-</p></div> : <form onSubmit={submit} noValidate><fieldset disabled={busy} className="order-flow"><section className="card form-section"><h2><span className="step-number">01</span>Your details</h2>{detailInputs.map(([key, label]) => <div key={key}>{(() => { const invalid = validation?.id === (key === 'uid' ? 'student-id' : key === 'department' ? 'department' : `student-${key}`); return <><label htmlFor={`student-${key}`}>{label}</label>{key === 'department' ? <select id="department" aria-label="Department" aria-invalid={invalid} value={details.department} onChange={e => setDetails({ ...details, department: e.target.value })}><option value="">Select your department</option>{info.departments.map(x => <option key={x}>{x}</option>)}</select> : <input id={`student-${key === 'uid' ? 'id' : key}`} aria-label={label} aria-invalid={invalid} type={key === 'email' ? 'email' : 'text'} value={details[key]} onChange={e => setDetails({ ...details, [key]: e.target.value })} />}{invalid && <div className="field-error" role="alert">{validation.message}</div>}</> })()}</div>)}</section><section className="card form-section meal-count-section"><h2><span className="step-number">02</span>Choose your meals</h2><label htmlFor="meal-count">How many meals?</label><select id="meal-count" aria-label="How many meals?" value={count} onChange={e => setCount(Number(e.target.value))}><option value={1}>1 meal — ${info.prices[1]}</option><option value={2}>2 meals — ${info.prices[2]}</option></select><div className="meal-entries"><p className="meal-entries-title">Your {count === 1 ? 'meal entry' : `${count} meal entries`}</p><div className="individual-meals">{meals.map((meal, index) => <MealEntry key={index} meal={meal} index={index} setMeals={setMeals} validation={validation} />)}</div></div></section><section className="card checkout-section"><div className="total"><div className="total-heading"><span className="step-number">03</span><span className="total-title">Total: <strong>${info.prices[count]}</strong></span></div></div><p className="payment-note">To be paid to the club in person. Your ticket will be emailed after payment is confirmed.</p>{message && <div className="msg err" role="alert">{message}</div>}<button className="submit-order">{busy ? 'Placing order…' : 'Submit Order'}</button></section></fieldset></form>}</main></div>
+</p></div> : <form onSubmit={submit} noValidate><fieldset disabled={busy} className="order-flow"><section className="card form-section"><h2><span className="step-number">01</span>Your details</h2>{detailInputs.map(([key, label]) => <div key={key}>{(() => { const invalid = validation?.id === (key === 'uid' ? 'student-id' : key === 'department' ? 'department' : `student-${key}`); return <><label htmlFor={`student-${key}`}>{label}</label>{key === 'department' ? <Picker id="department" label="Department" value={details.department} invalid={invalid} placeholder="Select your department" options={info.departments.map(item => ({ value: item, label: item }))} onChange={department => setDetails({ ...details, department })} /> : <input id={`student-${key === 'uid' ? 'id' : key}`} aria-label={label} aria-invalid={invalid} type={key === 'email' ? 'email' : 'text'} value={details[key]} onChange={e => setDetails({ ...details, [key]: e.target.value })} />}{invalid && <div className="field-error" role="alert">{validation.message}</div>}</> })()}</div>)}</section><section className="card form-section meal-count-section"><h2><span className="step-number">02</span>Choose your meals</h2><label htmlFor="meal-count">How many meals?</label><Picker id="meal-count" label="How many meals?" value={String(count)} options={[{ value: '1', label: `1 meal — ${info.prices[1]}` }, { value: '2', label: `2 meals — ${info.prices[2]}` }]} onChange={value => setCount(Number(value))} /><div className="meal-entries"><p className="meal-entries-title">Your {count === 1 ? 'meal entry' : `${count} meal entries`}</p><div className="individual-meals">{meals.map((meal, index) => <MealEntry key={index} meal={meal} index={index} setMeals={setMeals} validation={validation} />)}</div></div></section><section className="card checkout-section"><div className="total"><div className="total-heading"><span className="step-number">03</span><span className="total-title">Total: <strong>${info.prices[count]}</strong></span></div></div><p className="payment-note">To be paid to the club in person. Your ticket will be emailed after payment is confirmed.</p>{message && <div className="msg err" role="alert">{message}</div>}<button className="submit-order">{busy ? 'Placing order…' : 'Submit Order'}</button></section></fieldset></form>}</main></div>
 }
