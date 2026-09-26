@@ -99,8 +99,8 @@ function Orders({ api }) {
         <label htmlFor="order-search">Search orders</label>
         <input id="order-search" type="search" value={query} onChange={e => { setLoading(true); setQuery(e.target.value) }} placeholder="Name, university ID or email" />
         </div><div className="filters">
-          <div><label htmlFor="filter-department">Department</label><select id="filter-department" value={filters.department} onChange={e => filter('department', e.target.value)}>
-            <option value="">All departments</option>{(data?.departments || []).map(name => <option key={name}>{name}</option>)}
+          <div><label htmlFor="filter-department">Major</label><select id="filter-department" value={filters.department} onChange={e => filter('department', e.target.value)}>
+            <option value="">All majors</option>{(data?.departments || []).map(name => <option key={name}>{name}</option>)}
           </select></div>
           {statusFilters.map(([field, label, yes, no]) => <div key={field}><label htmlFor={`filter-${field}`}>{label}</label>
             <select id={`filter-${field}`} value={filters[field]} onChange={e => filter(field, e.target.value)}><option value="">All statuses</option><option value="1">{yes}</option><option value="0">{no}</option></select>
