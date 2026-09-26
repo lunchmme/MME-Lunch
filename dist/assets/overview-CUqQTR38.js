@@ -1,1 +1,0 @@
-import{j as e,c as t}from"./api-MrVVRSSr.js";import{A as o}from"./AdminShell-DCuNhyTl.js";import{S as i}from"./AdminPage-B6S7YTMD.js";import"./OrderDetails-Clkv3fgw.js";function m(){return e.jsx(o,{active:"overview",children:r=>e.jsx(i,{api:r})})}t(document.getElementById("root")).render(e.jsx(m,{}));

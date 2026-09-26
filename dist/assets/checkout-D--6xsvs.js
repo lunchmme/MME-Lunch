@@ -1,1 +1,0 @@
-import{c as o,j as t}from"./api-MrVVRSSr.js";import{C as r}from"./CheckoutPage-BnFjryPJ.js";import"./AdminShell-DCuNhyTl.js";import"./OrderDetails-Clkv3fgw.js";o(document.getElementById("root")).render(t.jsx(r,{}));

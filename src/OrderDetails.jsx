@@ -9,7 +9,7 @@ const quantities = values => Object.entries(values.reduce((all, value) => ({ ...
 function MealBreakdown({ meal, index }) {
   const details = meal.details || {}, burger = meal.meal_type === 'Burgers'
   const requested = quantities(burger ? details.burgers || [] : details.sticks || [])
-  return <li className="admin-meal"><div className="admin-meal-title"><span>Meal {index + 1}</span><strong>{meal.meal_type}</strong></div><div className="admin-list-row"><b>Requested</b><ul>{requested.map(([item, count]) => <li key={item}>×{count} {item}</li>)}</ul></div>{!burger && <div className="admin-list-row"><b>Salad</b><span>{details.side || '—'}</span></div>}{meal.note && <div className="admin-list-row"><b>Note</b><span>{meal.note}</span></div>}</li>
+  return <li className="admin-meal"><div className="admin-meal-title"><span>Meal {index + 1}</span><strong>{meal.meal_type}</strong></div><div className="admin-list-row"><b>Requested</b><ul>{requested.map(([item, count]) => <li key={item}>×{count} {item}</li>)}</ul></div>{!burger && <div className="admin-list-row"><b>Salad</b><span>{details.side || 'Not added'}</span></div>}{meal.note && <div className="admin-list-row"><b>Note</b><span>{meal.note}</span></div>}</li>
 }
 
 export default function OrderDetails({ order, api, onChange, ticketKey, allowDelete = false }) {

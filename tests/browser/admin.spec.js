@@ -219,6 +219,18 @@ test('student submission handles a network failure and shows no unpaid QR ticket
   expect(state.submitted).toBe(2)
 })
 
+test('second BBQ meal only shows a salad choice when its included salad is added', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'How many meals?', exact: true }).click()
+  await page.getByRole('option', { name: '2 meals - $25', exact: true }).click()
+  await page.getByRole('button', { name: 'Meal 2', exact: true }).click()
+  await page.getByRole('option', { name: '3 BBQ sticks', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Salad', exact: true })).toHaveCount(0)
+  await page.getByLabel("Add this meal’s salad").check()
+  await expect(page.getByRole('button', { name: 'Salad', exact: true })).toBeVisible()
+})
+
 test('payment email failure is visible and retry preserves the paid ticket', async ({ page }) => {
   const state = await mockApi(page)
   state.failEmail = true
