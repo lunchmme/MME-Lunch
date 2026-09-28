@@ -13,7 +13,7 @@ async function mockApi(page) {
   await page.route('https://fonts.gstatic.com/**', route => route.abort())
   const state = {
     deadline: '2027-07-15T12:00:00+03:00', failOrders: false, failMutation: false, failSubmit: false,
-    submitted: 0, deadlinePayload: null, failEmail: false,
+    submitted: 0, lastSubmission: null, deadlinePayload: null, failEmail: false,
     orders: [
       { id: 1, name: 'Maya Test', department: departments[0], uni_id: '123', email: 'maya@example.com', meal_count: 1, price: 15, paid: 1, entered: 0, received: 0, ticket_key: ticketKey, meals: [{ meal_type: 'Burgers', details: { burgers: ['Chicken', 'Meat'] }, note: 'No onions' }] },
       { id: 2, name: 'Karim Test', department: departments[1], uni_id: '456', email: 'karim@example.com', meal_count: 2, price: 25, paid: 0, entered: 0, received: 0, ticket_key: null, meals: [{ meal_type: 'BBQ sticks', details: { sticks: ['Tawouk', 'Lahme', 'Kafta'], side: 'Tabbouli' }, note: '' }, { meal_type: 'BBQ sticks', details: { sticks: ['Tawouk', 'Lahme', 'Kafta'], side: 'Fattoush', extraBeverageAndFries: true }, note: '' }] },
@@ -26,6 +26,7 @@ async function mockApi(page) {
     if (path === '/api/public') return respond({ closed: false, deadline: state.deadline, departments, prices: { 1: 15, 2: 25 } })
     if (path === '/api/orders') {
       state.submitted++
+      state.lastSubmission = request.postDataJSON()
       if (state.failSubmit) return route.abort('failed')
       return respond({ id: 3, total: 15 }, 201)
     }
@@ -56,7 +57,7 @@ async function mockApi(page) {
     if (emailRetry) {
       const order = state.orders.find(order => order.id === Number(emailRetry[1]))
       order.ticket_email_status = 'accepted'; order.ticket_email_error = null
-      return respond({ ok: true })
+      return respond({ ok: true, order })
     }
     const mutation = path.match(/\/api\/admin\/orders\/(\d+)\/(paid|entered|received)$/)
     if (mutation) {
@@ -69,7 +70,7 @@ async function mockApi(page) {
         order.ticket_email_status = value ? state.failEmail ? 'failed' : 'accepted' : null
         order.ticket_email_error = value && state.failEmail ? 'Brevo unavailable.' : null
       }
-      return respond({ ok: true, value })
+      return respond({ ok: true, value, order })
     }
     return respond({ error: 'Unexpected test request: ' + path }, 404)
   })
@@ -117,17 +118,18 @@ test('scanner decodes an actual QR image and invalidates the displayed ticket on
   await page.goto('/admin/scan/')
   await expect(page.getByRole('button', { name: 'Start camera' })).toBeVisible()
   await page.screenshot({ path: 'test-results/scanner-desktop.png', fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
   const svg = renderToStaticMarkup(React.createElement(QRCodeSVG, { xmlns: 'http://www.w3.org/2000/svg', value: ticketUrl, size: 400, includeMargin: true }))
   await page.getByLabel('Upload QR image').setInputFiles({ name: 'ticket.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) })
   await expect(page.getByRole('heading', { name: 'Maya Test' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY > 0)).toBe(true)
   await expect(page.getByText('No onions')).toBeVisible()
-  await page.locator('#order-1').getByRole('button', { name: 'Mark as entered' }).click()
+  await page.locator('.ticket-card').getByRole('button', { name: 'Mark as entered' }).click()
   await expect(page.getByRole('button', { name: 'Undo entered' })).toBeVisible()
   await page.getByRole('button', { name: 'Undo paid', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Payment undone · ticket revoked' })).toBeVisible()
   expect(state.orders[0].ticket_key).toBeNull()
-  await page.getByLabel('Ticket link', { exact: true }).fill(ticketUrl)
-  await page.getByRole('button', { name: 'Look up ticket' }).click()
+  await page.getByLabel('Upload QR image').setInputFiles({ name: 'ticket.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) })
   await expect(page.getByRole('alert')).toContainText('revoked')
 })
 
@@ -139,8 +141,8 @@ test('scanner handles invalid links, unreadable images, and camera denial', asyn
   await page.goto('/admin/scan/')
   await page.getByRole('button', { name: 'Start camera' }).click()
   await expect(page.getByRole('alert')).toContainText('Could not start the camera')
-  await page.getByLabel('Ticket link', { exact: true }).fill('https://example.com/not-a-ticket')
-  await page.getByRole('button', { name: 'Look up ticket' }).click()
+  const invalidSvg = renderToStaticMarkup(React.createElement(QRCodeSVG, { xmlns: 'http://www.w3.org/2000/svg', value: 'https://example.com/not-a-ticket', size: 400, includeMargin: true }))
+  await page.getByLabel('Upload QR image').setInputFiles({ name: 'invalid.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(invalidSvg) })
   await expect(page.getByRole('alert')).toContainText('not an MME Lunch ticket')
   await page.getByLabel('Upload QR image').setInputFiles({ name: 'blank.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="white"/></svg>') })
   await expect(page.getByRole('alert')).toContainText('No readable QR code')
@@ -192,12 +194,19 @@ test('student submission handles a network failure and shows no unpaid QR ticket
   const state = await mockApi(page)
   state.failSubmit = true
   await page.goto('/')
+  await expect(page.getByText('Good food. Great company. Come hungry!')).toBeVisible()
+  await expect(page.getByText('Registration is restricted to MME students and faculty members.')).toBeVisible()
   await page.getByRole('button', { name: 'Submit Order' }).click()
-  await expect(page.getByRole('alert')).toHaveText('Please select your department.')
-  await expect(page.getByLabel('Department', { exact: true })).toHaveAttribute('aria-invalid', 'true')
-  await page.getByRole('button', { name: 'Department', exact: true }).click()
-  await page.getByRole('option', { name: departments[0], exact: true }).click()
+  await expect(page.getByRole('alert')).toHaveText('Please enter your full name.')
+  await page.getByRole('button', { name: 'Attendee type' }).click()
+  await page.getByRole('option', { name: 'Faculty member' }).click()
+  await expect(page.getByLabel('Major', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('University ID')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Attendee type' }).click()
+  await page.getByRole('option', { name: 'Student' }).click()
   await page.getByLabel('Full name').fill('Student Test')
+  await page.getByRole('button', { name: 'Major', exact: true }).click()
+  await page.getByRole('option', { name: departments[0], exact: true }).click()
   await page.getByLabel('University ID').fill('ID-987')
   await page.getByLabel('Email', { exact: true }).fill('test@example.com')
   await page.getByRole('button', { name: 'Meal 1', exact: true }).click()
@@ -206,6 +215,7 @@ test('student submission handles a network failure and shows no unpaid QR ticket
   await page.getByRole('option', { name: 'Chicken', exact: true }).click()
   await page.getByRole('button', { name: 'Burger 2', exact: true }).click()
   await page.getByRole('option', { name: 'Meat', exact: true }).click()
+  await page.getByLabel('Beverage').uncheck()
   await page.screenshot({ path: 'test-results/student-desktop.png', fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -217,6 +227,9 @@ test('student submission handles a network failure and shows no unpaid QR ticket
   await expect(page.getByRole('heading', { name: 'Order received' })).toBeVisible()
   await expect(page.locator('svg')).toHaveCount(0)
   expect(state.submitted).toBe(2)
+  expect(state.lastSubmission.department).toBe(departments[0])
+  expect(state.lastSubmission.uniId).toBe('ID-987')
+  expect(state.lastSubmission.meals[0].servings).toEqual(['Ketchup', 'Coleslaw', 'Fries'])
 })
 
 test('second BBQ meal only shows a salad choice when its included salad is added', async ({ page }) => {
@@ -226,9 +239,13 @@ test('second BBQ meal only shows a salad choice when its included salad is added
   await page.getByRole('option', { name: '2 meals - $25', exact: true }).click()
   await page.getByRole('button', { name: 'Meal 2', exact: true }).click()
   await page.getByRole('option', { name: '3 BBQ sticks', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Salad', exact: true })).toHaveCount(0)
-  await page.getByLabel("Add this meal’s salad").check()
-  await expect(page.getByRole('button', { name: 'Salad', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Side', exact: true })).toHaveCount(0)
+  await page.getByLabel("Include this meal’s side").check()
+  await expect(page.getByRole('button', { name: 'Side', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Hummus')).toHaveCount(0)
+  await page.getByLabel("Include this meal’s free servings").check()
+  await expect(page.getByLabel('Hummus')).toBeChecked()
+  await expect(page.getByLabel('Beverage')).toBeChecked()
 })
 
 test('payment email failure is visible and retry preserves the paid ticket', async ({ page }) => {
@@ -241,6 +258,6 @@ test('payment email failure is visible and retry preserves the paid ticket', asy
   const key = state.orders[1].ticket_key
   await expect(page.getByRole('button', { name: 'Undo paid', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Retry ticket email' }).click()
-  await expect(page.getByText('Ticket email accepted by Brevo.')).toBeVisible()
+  await expect(page.getByText('Ticket email sent.')).toBeVisible()
   expect(state.orders[1].ticket_key).toBe(key)
 })

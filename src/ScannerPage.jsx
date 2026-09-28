@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import QrScanner from 'qr-scanner'
 import AdminShell from './AdminShell.jsx'
 import { Ticket } from './CheckoutPage.jsx'
@@ -14,11 +14,19 @@ function Scanner({ api }) {
   const mounted = useRef(false)
   const handled = useRef(false)
   const operation = useRef(false)
+  const result = useRef(null)
   const [camera, setCamera] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [link, setLink] = useState('')
   const [ticket, setTicket] = useState(null)
+
+  const showResult = useCallback(() => {
+    if (!window.matchMedia('(max-width: 700px)').matches) return
+    requestAnimationFrame(() => result.current?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    }))
+  }, [])
 
   function accept(value) {
     scanner.current?.stop()
@@ -41,8 +49,8 @@ function Scanner({ api }) {
     operation.current = true; handled.current = false
     setBusy(true); setError(''); setTicket(null)
     try {
-      if (!window.isSecureContext) throw new Error('Camera access needs HTTPS or localhost. You can upload a QR image or paste a ticket link below.')
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser cannot access a camera. Upload a QR image or paste the ticket link below.')
+      if (!window.isSecureContext) throw new Error('Camera access needs HTTPS or localhost. You can upload a QR image instead.')
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser cannot access a camera. Upload a QR image instead.')
       await scanner.current.start()
       if (mounted.current && !handled.current) setCamera(true)
     } catch (e) {
@@ -62,7 +70,7 @@ function Scanner({ api }) {
       const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true })
       if (mounted.current) accept(result.data)
     } catch {
-      if (mounted.current) setError('No readable QR code found. Choose a clear ticket image or paste the ticket link.')
+      if (mounted.current) setError('No readable QR code found. Choose a clear ticket image and try again.')
     } finally { operation.current = false; if (mounted.current) setBusy(false) }
   }
   return <section className="page-section">
@@ -78,16 +86,8 @@ function Scanner({ api }) {
           <label className={'button-link ghost upload-button' + (busy ? ' disabled' : '')}>Upload QR image<input type="file" accept="image/*" disabled={busy} onChange={readImage} /></label>
         </div>
       </div>
-      <div className="card manual-ticket">
-        <h3>Ticket lookup</h3>
-        <form onSubmit={event => { event.preventDefault(); if (!busy) accept(link) }}>
-          <label htmlFor="ticket-link">Ticket link</label>
-          <input id="ticket-link" type="url" required value={link} onChange={e => setLink(e.target.value)} placeholder="https://…/admin/checkout/?key=…" disabled={busy} />
-          <button className="ghost" disabled={busy}>Look up ticket</button>
-        </form>
-      </div>
     </div>
     {error && <p className="msg err" role="alert">{error}</p>}
-    {ticket && <Ticket key={ticket.key + ticket.scan} api={api} orderKey={ticket.key} />}
+    {ticket && <div ref={result} className="scanned-ticket"><Ticket key={ticket.key + ticket.scan} api={api} orderKey={ticket.key} onLoaded={showResult} /></div>}
   </section>
 }

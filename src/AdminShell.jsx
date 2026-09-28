@@ -9,7 +9,8 @@ export function adminRoot() {
 
 export default function AdminShell({ active = 'orders', children }) {
   const [code, setCode] = useState('')
-  const [ok, setOk] = useState(false)
+  const [ok, setOk] = useState(() => sessionStorage.getItem('mme-admin-session') === '1')
+  const [checked, setChecked] = useState(() => sessionStorage.getItem('mme-admin-session') === '1')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const lock = useRef(false)
@@ -21,19 +22,26 @@ export default function AdminShell({ active = 'orders', children }) {
     setBusy(true); setError('')
     try {
       await apiCall('/api/admin/login', 'POST', { code: value })
-      setCode(''); setOk(true)
+      sessionStorage.setItem('mme-admin-session', '1')
+      setCode(''); setOk(true); setChecked(true)
     } catch (e) { setError(e.message) }
     finally { setBusy(false); lock.current = false }
   }
-  useEffect(() => { adminCall('', '/state').then(() => setOk(true)).catch(() => {}) }, [])
+  useEffect(() => {
+    adminCall('', '/state').then(() => {
+      sessionStorage.setItem('mme-admin-session', '1'); setOk(true)
+    }).catch(() => {
+      sessionStorage.removeItem('mme-admin-session'); setOk(false)
+    }).finally(() => setChecked(true))
+  }, [])
   function logout() {
-    adminCall('', '/logout', 'POST').finally(() => { setCode(''); setOk(false) })
+    adminCall('', '/logout', 'POST').finally(() => { sessionStorage.removeItem('mme-admin-session'); setCode(''); setOk(false); setChecked(true) })
   }
   const root = adminRoot()
   return <div className="admin-app">
     <BrandHeader admin>{ok && <button className="ghost logout" onClick={logout}>Log out</button>}</BrandHeader>
     <main className="site-width admin-wrap">
-    {!ok ? <form className="card login-card" onSubmit={event => { event.preventDefault(); login(code) }}>
+    {!checked ? <p className="muted admin-session-check" role="status">Checking admin session…</p> : !ok ? <form className="card login-card" onSubmit={event => { event.preventDefault(); login(code) }}>
       <p className="eyebrow">Team access</p><h2>Admin login</h2>
       <label htmlFor="admin-code">Admin code</label>
       <input id="admin-code" type="password" autoComplete="current-password" required value={code} disabled={busy} onChange={e => setCode(e.target.value)} />

@@ -91,6 +91,19 @@ function Orders({ api }) {
     return () => { current = false; clearTimeout(timer) }
   }, [api, query, filters, tick])
   const refresh = () => setTick(n => n + 1)
+  const updateOrder = (id, field, updated, response) => {
+    setData(previous => {
+      if (!previous) return previous
+      if (field === 'delete') return { ...previous, orders: previous.orders.filter(order => order.id !== id), count: Math.max(0, previous.count - 1) }
+      return { ...previous, orders: previous.orders.map(order => {
+        if (order.id !== id) return order
+        if (updated) return updated
+        if (['paid', 'entered', 'received'].includes(field)) return { ...order, [field]: Number(response?.value ?? !order[field]) }
+        return order
+      }) }
+    })
+    if (field === 'delete') setExpanded(previous => previous.filter(orderId => orderId !== id))
+  }
   const filter = (field, value) => { setLoading(true); setFilters(previous => ({ ...previous, [field]: value })) }
   return <>
     <section className="orders-section" aria-labelledby="orders-title">
@@ -111,7 +124,7 @@ function Orders({ api }) {
       <div className="results-heading" role="status"><h3>Total: {loading || error ? '—' : data?.count ?? 0}</h3>{loading && <span className="muted small">Updating…</span>}</div>
       {error && <div className="msg err" role="alert">{error} <button className="ghost" onClick={refresh}>Retry</button></div>}
       {!loading && !error && data?.orders.length === 0 && <div className="card empty-state"><h3>No matching orders</h3><p className="muted">Try a different search or clear the filters.</p></div>}
-      {!loading && !error && <div className="order-results">{data?.orders.map(order => <CustomerCard key={order.id} order={order} api={api} onChange={refresh}
+      {!loading && !error && <div className="order-results">{data?.orders.map(order => <CustomerCard key={order.id} order={order} api={api} onChange={(field, updated, response) => updateOrder(order.id, field, updated, response)}
         open={expanded.includes(order.id)} onToggle={() => setExpanded(previous => previous.includes(order.id) ? previous.filter(id => id !== order.id) : [...previous, order.id])} />)}</div>}
     </section>
   </>
