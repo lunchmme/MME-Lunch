@@ -1,0 +1,1 @@
+import{c as o,j as t}from"./rhu-asme-D0VlGf2u.js";import{A as r}from"./AdminPage-DUJznln6.js";import"./AdminShell-D3jJVxnR.js";import"./OrderDetails-CG9x4iEx.js";o(document.getElementById("root")).render(t.jsx(r,{}));

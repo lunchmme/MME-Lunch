@@ -1,1 +1,0 @@
-import{j as e,c as t}from"./rhu-asme-xTffd7RT.js";import{A as o}from"./AdminShell-DcGWYSwN.js";import{S as i}from"./AdminPage-CucbvNtr.js";import"./OrderDetails-DXhY2oyH.js";function m(){return e.jsx(o,{active:"overview",children:r=>e.jsx(i,{api:r})})}t(document.getElementById("root")).render(e.jsx(m,{}));
