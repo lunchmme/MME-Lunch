@@ -1,12 +1,12 @@
 export const API = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 export const SITE_URL = (import.meta.env.VITE_SITE_URL || 'http://localhost:5173').replace(/\/$/, '')
-export async function apiCall(path, method = 'GET', body, code) {
+export async function apiCall(path, method = 'GET', body, code, adminToken) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 20000)
   try {
     const response = await fetch(API + path, {
       method, signal: controller.signal, credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...(code ? { 'x-admin-code': code } : {}) },
+      headers: { 'Content-Type': 'application/json', ...(code ? { 'x-admin-code': code } : {}), ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
     const data = await response.json().catch(() => null)
@@ -25,4 +25,4 @@ export async function apiCall(path, method = 'GET', body, code) {
     clearTimeout(timer)
   }
 }
-export const adminCall = (code, path, method = 'GET', body) => apiCall('/api/admin' + path, method, body, code)
+export const adminCall = (token, path, method = 'GET', body) => apiCall('/api/admin' + path, method, body, undefined, token)

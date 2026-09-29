@@ -8,34 +8,45 @@ export function adminRoot() {
 }
 
 export default function AdminShell({ active = 'orders', children }) {
+  const tokenKey = 'mme-admin-token'
   const [code, setCode] = useState('')
-  const [ok, setOk] = useState(() => sessionStorage.getItem('mme-admin-session') === '1')
-  const [checked, setChecked] = useState(() => sessionStorage.getItem('mme-admin-session') === '1')
+  const [token, setToken] = useState(() => localStorage.getItem(tokenKey) || '')
+  const [ok, setOk] = useState(() => Boolean(localStorage.getItem(tokenKey)))
+  const [checked, setChecked] = useState(() => Boolean(localStorage.getItem(tokenKey)))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const lock = useRef(false)
-  const api = useCallback((path, method, body) => adminCall('', path, method, body), [])
+  const authVersion = useRef(0)
+  const api = useCallback((path, method, body) => adminCall(token, path, method, body), [token])
 
   async function login(value) {
     if (lock.current) return
     lock.current = true
     setBusy(true); setError('')
     try {
-      await apiCall('/api/admin/login', 'POST', { code: value })
-      sessionStorage.setItem('mme-admin-session', '1')
-      setCode(''); setOk(true); setChecked(true)
+      const result = await apiCall('/api/admin/login', 'POST', { code: value })
+      if (!result.adminToken) throw new Error('The server did not return an admin session. Please try again.')
+      authVersion.current += 1
+      localStorage.setItem(tokenKey, result.adminToken)
+      setToken(result.adminToken); setCode(''); setOk(true); setChecked(true)
     } catch (e) { setError(e.message) }
     finally { setBusy(false); lock.current = false }
   }
   useEffect(() => {
-    adminCall('', '/state').then(() => {
-      sessionStorage.setItem('mme-admin-session', '1'); setOk(true)
+    let current = true
+    const version = authVersion.current
+    api('/state').then(() => {
+      if (!current || version !== authVersion.current) return
+      setOk(true)
     }).catch(() => {
-      sessionStorage.removeItem('mme-admin-session'); setOk(false)
-    }).finally(() => setChecked(true))
-  }, [])
+      if (!current || version !== authVersion.current) return
+      localStorage.removeItem(tokenKey); setToken(''); setOk(false)
+    }).finally(() => { if (current && version === authVersion.current) setChecked(true) })
+    return () => { current = false }
+  }, [api])
   function logout() {
-    adminCall('', '/logout', 'POST').finally(() => { sessionStorage.removeItem('mme-admin-session'); setCode(''); setOk(false); setChecked(true) })
+    authVersion.current += 1
+    api('/logout', 'POST').finally(() => { localStorage.removeItem(tokenKey); setToken(''); setCode(''); setOk(false); setChecked(true) })
   }
   const root = adminRoot()
   return <div className="admin-app">
