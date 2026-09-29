@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AdminShell from './AdminShell.jsx'
 import OrderDetails, { StatusBadges } from './OrderDetails.jsx'
 
@@ -55,12 +55,34 @@ export function Stats({ api, refreshKey }) {
 }
 
 function CustomerCard({ order, api, onChange, open, onToggle }) {
+  const [details, setDetails] = useState(() => order.meals ? order : null)
+  const [detailsError, setDetailsError] = useState('')
+  const [reload, setReload] = useState(0)
+  useEffect(() => {
+    if (order.meals) setDetails(order)
+  }, [order])
+  useEffect(() => {
+    if (!open || details?.id === order.id) return
+    let current = true
+    setDetailsError('')
+    api(`/orders/${order.id}`).then(value => { if (current) setDetails(value) })
+      .catch(error => { if (current) setDetailsError(error.message) })
+    return () => { current = false }
+  }, [api, details?.id, open, order.id, reload])
+  const changed = (field, updated, response) => {
+    if (updated) setDetails(updated)
+    onChange(field, updated, response)
+  }
   return <article className="card customer">
     <button className="customer-toggle" aria-expanded={open} aria-controls={`order-${order.id}`} onClick={onToggle}>
       <div className="customer-identity"><strong>{order.name} <span className="customer-total">· ${order.price}</span></strong></div>
       <StatusBadges order={order} /><span className="expand-icon" aria-hidden="true">{open ? '−' : '+'}</span>
     </button>
-    {open && <div className="customer-body" id={`order-${order.id}`}><OrderDetails order={order} api={api} onChange={onChange} allowDelete /></div>}
+    {open && <div className="customer-body" id={`order-${order.id}`}>
+      {detailsError ? <p className="msg err" role="alert">{detailsError} <button className="ghost" onClick={() => { setDetails(null); setReload(value => value + 1) }}>Retry</button></p>
+        : !details ? <p className="muted" role="status">Loading order details…</p>
+          : <OrderDetails order={details} api={api} onChange={changed} allowDelete />}
+    </div>}
   </article>
 }
 
@@ -79,15 +101,18 @@ function Orders({ api }) {
   const [error, setError] = useState('')
   const [tick, setTick] = useState(0)
   const [expanded, setExpanded] = useState([])
+  const initialLoad = useRef(true)
   useEffect(() => {
     let current = true
     setLoading(true); setError('')
+    const delay = initialLoad.current ? 0 : 200
+    initialLoad.current = false
     const timer = setTimeout(() => {
       const params = new URLSearchParams({ q: query, ...filters })
       api('/orders?' + params).then(value => { if (current) setData(value) })
         .catch(e => { if (current) setError(e.message) })
         .finally(() => { if (current) setLoading(false) })
-    }, 200)
+    }, delay)
     return () => { current = false; clearTimeout(timer) }
   }, [api, query, filters, tick])
   const refresh = () => setTick(n => n + 1)

@@ -46,7 +46,13 @@ async function mockApi(page) {
         if (![order.name, order.uni_id, order.email].some(value => value.toLowerCase().includes(query))) return false
         return ['department', 'paid', 'entered', 'received'].every(key => !url.searchParams.get(key) || String(order[key]) === url.searchParams.get(key))
       })
-      return respond({ orders: filtered, count: filtered.length, departments })
+      const summaries = filtered.map(({ meals, ...summary }) => summary)
+      return respond({ orders: summaries, count: summaries.length, departments })
+    }
+    const orderDetails = path.match(/^\/api\/admin\/orders\/(\d+)$/)
+    if (orderDetails && request.method() === 'GET') {
+      const order = state.orders.find(item => item.id === Number(orderDetails[1]))
+      return order ? respond(order) : respond({ error: 'Order not found.' }, 404)
     }
     if (path.startsWith('/api/admin/checkout/')) {
       const key = path.split('/').pop()
