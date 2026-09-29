@@ -23,12 +23,12 @@ async function mockApi(page) {
     const request = route.request(), url = new URL(request.url()), path = url.pathname
     const respond = (json, status = 200) => route.fulfill({ status, json, headers: { 'Access-Control-Allow-Origin': 'http://127.0.0.1:4173', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS' } })
     if (request.method() === 'OPTIONS') return respond({})
-    if (path === '/api/public') return respond({ closed: false, deadline: state.deadline, departments, prices: { 1: 15, 2: 25 } })
+    if (path === '/api/public') return respond({ closed: false, deadline: state.deadline, departments, prices: { 1: 15, 2: 25 }, extraFriesPrice: 2.5 })
     if (path === '/api/orders') {
       state.submitted++
       state.lastSubmission = request.postDataJSON()
       if (state.failSubmit) return route.abort('failed')
-      return respond({ id: 3, total: 15 }, 201)
+      return respond({ id: 3, total: 15 + (state.lastSubmission.extraFries ? 2.5 : 0) }, 201)
     }
     if (path === '/api/admin/state') return respond({ ok: true })
     if (path === '/api/admin/deadline') {
@@ -38,7 +38,7 @@ async function mockApi(page) {
       }
       return respond({ deadline: state.deadline, timezone: 'Asia/Beirut' })
     }
-    if (path === '/api/admin/stats') return respond({ totalCustomers: 2, paid: 1, unpaid: 1, totalMeals: 3, burgerMeals: 1, bbqMeals: 2, entered: 0, received: 0, collected: 15, totalValue: 40, outstanding: 25, chickenBurgers: 1, meatBurgers: 1, tawoukSticks: 2, lahmeSticks: 2, kaftaSticks: 2, tabbouliSalads: 1, fattoushSalads: 1, beverages: 2, fries: 2, ketchupServings: 1, coleslawServings: 1, hummusServings: 2, garlicSauceServings: 2, grilledTomatoOnionServings: 2, breadServings: 2 })
+    if (path === '/api/admin/stats') return respond({ totalCustomers: 2, paid: 1, unpaid: 1, totalMeals: 3, burgerMeals: 1, bbqMeals: 2, entered: 0, received: 0, collected: 15, totalValue: 40, outstanding: 25, chickenBurgers: 1, meatBurgers: 1, tawoukSticks: 2, lahmeSticks: 2, kaftaSticks: 2, tabbouliSalads: 1, fattoushSalads: 1, beverages: 2, fries: 2, extraFries: 0, ketchupServings: 1, coleslawServings: 1, hummusServings: 2, garlicSauceServings: 2, grilledTomatoOnionServings: 2, breadServings: 2 })
     if (path === '/api/admin/orders') {
       if (state.failOrders) return respond({ error: 'Orders temporarily unavailable.' }, 503)
       const query = url.searchParams.get('q')?.toLowerCase() || ''
@@ -222,6 +222,8 @@ test('student submission handles a network failure and shows no unpaid QR ticket
   await page.getByRole('button', { name: 'Burger 2', exact: true }).click()
   await page.getByRole('option', { name: 'Meat', exact: true }).click()
   await page.getByLabel('Beverage').uncheck()
+  await page.getByLabel('Add extra fries').check()
+  await expect(page.getByText('Total:')).toContainText('$17.50')
   await page.screenshot({ path: 'test-results/student-desktop.png', fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -236,6 +238,7 @@ test('student submission handles a network failure and shows no unpaid QR ticket
   expect(state.lastSubmission.department).toBe(departments[0])
   expect(state.lastSubmission.uniId).toBe('ID-987')
   expect(state.lastSubmission.meals[0].servings).toEqual(['Ketchup', 'Coleslaw', 'Fries'])
+  expect(state.lastSubmission.extraFries).toBe(true)
 })
 
 test('second BBQ meal only shows a salad choice when its included salad is added', async ({ page }) => {

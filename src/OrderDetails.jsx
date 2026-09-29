@@ -20,7 +20,7 @@ function MealBreakdown({ meal, index }) {
 export default function OrderDetails({ order, api, onChange, ticketKey, allowDelete = false }) {
   const [busy, setBusy] = useState(''), [error, setError] = useState('')
   const lock = useRef(false)
-  const servings = quantities(order.meals.flatMap((meal, index) => meal.details?.servings ?? legacyServings(meal, index)))
+  const servings = quantities([...order.meals.flatMap((meal, index) => meal.details?.servings ?? legacyServings(meal, index)), ...(order.extra_fries ? ['Extra Fries'] : [])])
   async function change(field) {
     if (lock.current || field === 'delete' && !window.confirm(`Permanently delete ${order.name}'s order?`)) return
     lock.current = true; setBusy(field); setError('')

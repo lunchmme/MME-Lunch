@@ -46,7 +46,7 @@ export function Stats({ api, refreshKey }) {
         <Breakdown title="Burger orders" rows={[["Chicken burgers", data.chickenBurgers], ["Meat burgers", data.meatBurgers], ["Burger meals", data.burgerMeals]]} />
         <Breakdown title="BBQ stick orders" rows={[["Tawouk sticks", data.tawoukSticks], ["Lahme sticks", data.lahmeSticks], ["Kafta sticks", data.kaftaSticks], ["BBQ meals", data.bbqMeals]]} />
         <Breakdown title="Salads" rows={[["Tabbouli", data.tabbouliSalads], ["Fattoush", data.fattoushSalads]]} />
-        <Breakdown title="Beverages & fries" rows={[["Beverages", data.beverages], ["Fries", data.fries]]} />
+        <Breakdown title="Beverages & fries" rows={[["Beverages", data.beverages], ["Fries", data.fries], ["Extra fries", data.extraFries]]} />
         <Breakdown title="Burger meal servings" rows={[["Ketchup", data.ketchupServings], ["Coleslaw", data.coleslawServings]]} />
         <Breakdown title="BBQ meal servings" rows={[["Hummus", data.hummusServings], ["Garlic sauce", data.garlicSauceServings], ["Grilled tomatoes & onions", data.grilledTomatoOnionServings], ["Bread", data.breadServings]]} />
       </div>

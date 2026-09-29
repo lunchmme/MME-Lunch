@@ -2251,6 +2251,12 @@ p:last-child {
 .meal-entries .individual-meal { border-left-color: var(--blue) !important; box-shadow: 0 3px 12px rgba(29,157,217,.055); }
 .meal-entries .meal-heading > span { background: #eaf7fc !important; color: #1678a5 !important; }
 .meal-entries .individual-meals { gap: 12px; }
+.extra-fries-option { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 13px; border: 1px solid #f2d28f; border-radius: 9px; background: #fff8e8; color: #704c09; cursor: pointer; }
+.extra-fries-option input { width: 18px; min-height: 18px; margin: 0; accent-color: #a56a00; cursor: pointer; }
+.extra-fries-option span { display: grid; gap: 2px; }
+.extra-fries-option strong { font-size: 12px; }
+.extra-fries-option small { color: #8a6a31; font-size: 10px; }
+.extra-fries-option b { color: #90620b; font-size: 13px; font-variant-numeric: tabular-nums; }
 .meal-entries .meal-fields { grid-template-columns: 1fr; gap: 10px; }
 .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .picker { position: relative; }
